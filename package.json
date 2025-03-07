@@ -1,0 +1,24 @@
+{
+  "name": "barcode-scanner",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@zxing/browser": "^0.1.5",
+    "@zxing/library": "^0.21.3",
+    "axios": "^1.8.2",
+    "primeicons": "^7.0.0",
+    "primevue": "3",
+    "vue": "^3.5.13",
+    "vue-router": "4"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.1",
+    "vite": "^6.2.0"
+  }
+}
