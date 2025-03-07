@@ -41,15 +41,15 @@ import InputText from 'primevue/inputtext'
 
 const router = useRouter()
 const video = ref(null)
-const codeReader = new BrowserMultiFormatReader()
 const isScanning = ref(false)
 const manualBarcode = ref('')
 
+// Configuration optimisée du lecteur de codes-barres
+const codeReader = new BrowserMultiFormatReader()
+codeReader.timeBetweenScansMillis = 100 // Scan plus fréquent
+
 const checkCameraSupport = () => {
-  // Vérifier si nous sommes en HTTPS ou localhost
   const isSecure = location.protocol === 'https:' || location.hostname === 'localhost'
-  
-  // Vérifier le support de la caméra
   const hasGetUserMedia = !!(navigator.mediaDevices?.getUserMedia || navigator.webkitGetUserMedia || 
                            navigator.mozGetUserMedia || navigator.msGetUserMedia)
   
@@ -66,26 +66,73 @@ const startScanning = async () => {
   try {
     checkCameraSupport()
     
-    // Utiliser la méthode la plus simple de ZXing
-    await codeReader.decodeOnceFromVideoDevice(undefined, video.value)
-      .then((result) => {
-        if (result) {
-          // Retour haptique sur mobile
+    // Configuration optimisée de la caméra
+    const constraints = {
+      audio: false,
+      video: {
+        facingMode: 'environment',
+        width: { min: 640, ideal: 1280, max: 1920 },
+        height: { min: 480, ideal: 720, max: 1080 },
+        aspectRatio: { ideal: 1.777778 },
+        focusMode: 'continuous',
+        brightness: { ideal: 100 },
+        contrast: { ideal: 100 }
+      }
+    }
+
+    // Démarrer la caméra avec les contraintes optimisées
+    const stream = await navigator.mediaDevices.getUserMedia(constraints)
+    video.value.srcObject = stream
+
+    // Attendre que la vidéo soit chargée
+    await new Promise((resolve) => {
+      video.value.onloadedmetadata = resolve
+    })
+
+    // Optimiser les paramètres de la piste vidéo si possible
+    const videoTrack = stream.getVideoTracks()[0]
+    if (videoTrack.getCapabilities) {
+      try {
+        await videoTrack.applyConstraints({
+          advanced: [{
+            focusMode: 'continuous',
+            focusDistance: 0.5,
+            brightness: 100,
+            contrast: 100,
+            sharpness: 100
+          }]
+        })
+      } catch (e) {
+        console.warn('Paramètres avancés non supportés:', e)
+      }
+    }
+
+    // Démarrer la détection avec un intervalle court
+    let lastResult = null
+    const processFrame = async () => {
+      if (!isScanning.value) return
+
+      try {
+        const result = await codeReader.decodeFromVideoElement(video.value)
+        if (result && result.getText() !== lastResult) {
+          lastResult = result.getText()
           if ('vibrate' in navigator) {
             navigator.vibrate(200)
           }
-          
-          const barcode = result.getText()
-          router.push(`/product/${barcode}`)
+          router.push(`/product/${lastResult}`)
         }
-      })
-      .catch((err) => {
-        if (err && !(err instanceof Error)) {
-          console.warn('Erreur de lecture:', err)
-        }
-      })
+      } catch (error) {
+        // Ignorer les erreurs de lecture, continuer à scanner
+      }
+
+      if (isScanning.value) {
+        requestAnimationFrame(processFrame)
+      }
+    }
 
     isScanning.value = true
+    processFrame()
+
   } catch (error) {
     console.error('Erreur lors du démarrage du scanner:', error)
     alert(error.message || 'Impossible d\'accéder à la caméra. Veuillez vérifier les permissions.')
@@ -94,10 +141,20 @@ const startScanning = async () => {
 
 const stopScanning = () => {
   try {
-    codeReader.reset()
     isScanning.value = false
+    if (video.value && video.value.srcObject) {
+      video.value.srcObject.getTracks().forEach(track => track.stop())
+      video.value.srcObject = null
+    }
+    codeReader.reset()
   } catch (error) {
     console.error('Erreur lors de l\'arrêt du scanner:', error)
+  }
+}
+
+const handleManualSubmit = () => {
+  if (manualBarcode.value && manualBarcode.value.trim().length > 0) {
+    router.push(`/product/${manualBarcode.value.trim()}`)
   }
 }
 
@@ -106,12 +163,6 @@ const toggleScanner = () => {
     stopScanning()
   } else {
     startScanning()
-  }
-}
-
-const handleManualSubmit = () => {
-  if (manualBarcode.value && manualBarcode.value.trim().length > 0) {
-    router.push(`/product/${manualBarcode.value.trim()}`)
   }
 }
 
