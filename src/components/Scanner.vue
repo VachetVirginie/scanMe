@@ -1,7 +1,7 @@
 <template>
   <div class="scanner-container">
     <div class="scanner-header">
-      <h1>Démasque ton produit ! 🔍</h1>
+      <h1>Démasque ton produit ! 🕵🏻‍♂️</h1>
       <p class="subtitle">Découvre la vérité derrière tes achats et deviens un consomm'acteur averti</p>
     </div>
     

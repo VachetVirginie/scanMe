@@ -137,22 +137,47 @@ const product = ref(null)
 const brandInfo = ref(null)
 const loading = ref(true)
 const error = ref(null)
-const debug = ref(true)
 
-const getNutriScoreClass = (grade) => {
-  if (!grade) return ''
-  return `nutriscore-${grade.toLowerCase()}`
+// Instance Axios avec configuration de base
+const api = axios.create({
+  baseURL: 'https://world.openfoodfacts.org',
+  timeout: 5000, // Timeout après 5 secondes
+  headers: {
+    'User-Agent': 'BarcodeScanner - Web App - Version 1.0'
+  }
+})
+
+// Cache pour les résultats avec expiration
+const cache = {
+  data: new Map(),
+  timeouts: new Map(),
+  set(key, value, expirationMinutes = 60) {
+    this.data.set(key, value)
+    // Supprimer l'ancien timeout s'il existe
+    if (this.timeouts.has(key)) {
+      clearTimeout(this.timeouts.get(key))
+    }
+    // Définir un nouveau timeout
+    const timeout = setTimeout(() => {
+      this.data.delete(key)
+      this.timeouts.delete(key)
+    }, expirationMinutes * 60 * 1000)
+    this.timeouts.set(key, timeout)
+  },
+  get(key) {
+    return this.data.get(key)
+  },
+  has(key) {
+    return this.data.has(key)
+  }
 }
 
-const getEcoScoreClass = (grade) => {
-  if (!grade) return ''
-  return `ecoscore-${grade.toLowerCase()}`
-}
+const getNutriScoreClass = (grade) => !grade ? '' : `nutriscore-${grade.toLowerCase()}`
+const getEcoScoreClass = (grade) => !grade ? '' : `ecoscore-${grade.toLowerCase()}`
 
 const formatCountryTags = (tags) => {
   if (!tags?.length) return 'Non spécifié'
   return tags.map(tag => {
-    // Convert country code to country name
     const country = tag.replace('en:', '').split('-').map(word => 
       word.charAt(0).toUpperCase() + word.slice(1)
     ).join(' ')
@@ -165,170 +190,54 @@ const formatCountry = (countries) => {
   return countries.split(',').map(country => country.trim()).join(', ')
 }
 
-// Cache pour les résultats Wikidata
-const brandCache = new Map()
-
 const searchCompanyWithWikidata = async (brandName) => {
   try {
-    // Nettoyage du nom de la marque
+    // Nettoyage et normalisation du nom de la marque
     const cleanBrandName = brandName
-      .replace(/\s*\([^)]*\)/g, '') // Enlève le texte entre parenthèses
+      .replace(/\s*\([^)]*\)/g, '')
+      .toLowerCase()
       .trim()
 
     // Vérifier le cache
-    if (brandCache.has(cleanBrandName)) {
-      console.log('Résultat trouvé dans le cache pour:', cleanBrandName)
-      return brandCache.get(cleanBrandName)
+    const cacheKey = `wikidata_${cleanBrandName}`
+    if (cache.has(cacheKey)) {
+      return cache.get(cacheKey)
     }
-
-    console.log('Searching for cleaned brand name:', cleanBrandName)
 
     const query = `
       SELECT DISTINCT ?company ?companyLabel ?countryLabel ?foundingDate ?parentLabel ?headquartersLabel
       WHERE {
-        ?company wdt:P31 ?type.
-        VALUES ?type { wd:Q4830453 wd:Q6881511 }.  # entreprise commerciale ou marque
-        ?company rdfs:label ?label.
-        FILTER(LANG(?label) = "en").
-        
-        # Correspondance plus stricte du nom
-        FILTER(REGEX(LCASE(?label), CONCAT("^", LCASE("${cleanBrandName}"), "(\\\\s|$)"))) .
-        
-        # Pays d'origine (obligatoire)
+        ?company wdt:P31 ?type;
+                rdfs:label ?label.
+        VALUES ?type { wd:Q4830453 wd:Q6881511 }
+        FILTER(LANG(?label) = "en")
+        FILTER(REGEX(LCASE(?label), CONCAT("^", LCASE("${cleanBrandName}"), "(\\\\s|$)")))
         ?company wdt:P17 ?country.
-        
-        # Autres propriétés optionnelles
-        OPTIONAL { ?company wdt:P571 ?foundingDate. }
-        OPTIONAL { ?company wdt:P749 ?parent. }
-        OPTIONAL { ?company wdt:P159 ?headquarters. }
-        
-        # Préférer les marques aux entreprises génériques
-        OPTIONAL { ?company wdt:P31 wd:Q6881511. }  # est une marque
-        
-        SERVICE wikibase:label { 
-          bd:serviceParam wikibase:language "en".
-          ?company rdfs:label ?companyLabel.
-          ?country rdfs:label ?countryLabel.
-          ?parent rdfs:label ?parentLabel.
-          ?headquarters rdfs:label ?headquartersLabel.
-        }
+        OPTIONAL { ?company wdt:P571 ?foundingDate }
+        OPTIONAL { ?company wdt:P749 ?parent }
+        OPTIONAL { ?company wdt:P159 ?headquarters }
+        SERVICE wikibase:label { bd:serviceParam wikibase:language "en" }
       }
-      ORDER BY DESC(?type = wd:Q6881511)  # Prioriser les marques
-      LIMIT 1
-    `
+      LIMIT 1`
+
     const url = `https://query.wikidata.org/sparql?query=${encodeURIComponent(query)}&format=json`
-    
-    const response = await axios.get(url, {
-      headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'BarcodeScanner/1.0'
-      }
-    })
+    const response = await axios.get(url, { timeout: 5000 })
 
-    let result = null
+    const results = response.data.results.bindings[0]
+    if (!results) return null
 
-    if (response.data?.results?.bindings?.[0]) {
-      const data = response.data.results.bindings[0]
-      result = {
-        name: data.companyLabel?.value,
-        country: data.countryLabel?.value,
-        headquarters: data.headquartersLabel?.value,
-        founded: data.foundingDate?.value,
-        parentCompany: data.parentLabel?.value
-      }
-    } else {
-      // Si pas de résultat avec la correspondance stricte, essayer avec le nom complet
-      const fullNameQuery = `
-        SELECT DISTINCT ?company ?companyLabel ?countryLabel ?foundingDate ?parentLabel ?headquartersLabel
-        WHERE {
-          ?company wdt:P31 ?type.
-          VALUES ?type { wd:Q4830453 wd:Q6881511 }.
-          ?company rdfs:label ?label.
-          FILTER(LANG(?label) = "en").
-          FILTER(LCASE(?label) = LCASE("${cleanBrandName}")).
-          
-          ?company wdt:P17 ?country.
-          OPTIONAL { ?company wdt:P571 ?foundingDate. }
-          OPTIONAL { ?company wdt:P749 ?parent. }
-          OPTIONAL { ?company wdt:P159 ?headquarters. }
-          
-          SERVICE wikibase:label {
-            bd:serviceParam wikibase:language "en".
-          }
-        }
-        LIMIT 1
-      `
-      const fullNameUrl = `https://query.wikidata.org/sparql?query=${encodeURIComponent(fullNameQuery)}&format=json`
-      const fullNameResponse = await axios.get(fullNameUrl, {
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'BarcodeScanner/1.0'
-        }
-      })
-
-      if (fullNameResponse.data?.results?.bindings?.[0]) {
-        const data = fullNameResponse.data.results.bindings[0]
-        result = {
-          name: data.companyLabel?.value,
-          country: data.countryLabel?.value,
-          headquarters: data.headquartersLabel?.value,
-          founded: data.foundingDate?.value,
-          parentCompany: data.parentLabel?.value
-        }
-      }
+    const info = {
+      country: results.countryLabel?.value,
+      founded: results.foundingDate?.value,
+      headquarters: results.headquartersLabel?.value,
+      parentCompany: results.parentLabel?.value
     }
 
-    // Sauvegarder dans le cache (même si null)
-    brandCache.set(cleanBrandName, result)
-    return result
-
+    // Mettre en cache pour 1 heure
+    cache.set(cacheKey, info, 60)
+    return info
   } catch (err) {
-    console.error('Erreur Wikidata:', err)
-    return null
-  }
-}
-
-const getBrandInfo = async (brandTag) => {
-  try {
-    if (!brandTag) return null
-    const brand = brandTag.replace('en:', '')
-    const brandName = brand.split('-').map(word => 
-      word.charAt(0).toUpperCase() + word.slice(1)
-    ).join(' ')
-
-    // 1. D'abord essayer avec Wikidata pour les informations d'entreprise
-    const wikidataInfo = await searchCompanyWithWikidata(brandName)
-
-    // 2. Ensuite Open Food Facts pour les informations sur les produits
-    const offResponse = await axios.get(`https://world.openfoodfacts.org/brand/${brand}.json`)
-    let mainCountry = null
-    let productsCount = 0
-
-    if (offResponse.data.count > 0) {
-      productsCount = offResponse.data.count
-      const countriesCount = {}
-      offResponse.data.products.forEach(product => {
-        if (product.countries_tags) {
-          product.countries_tags.forEach(country => {
-            countriesCount[country] = (countriesCount[country] || 0) + 1
-          })
-        }
-      })
-      const mostCommonCountry = Object.entries(countriesCount)
-        .sort(([,a], [,b]) => b - a)[0]?.[0]
-      if (mostCommonCountry) {
-        mainCountry = formatCountryTags([mostCommonCountry])
-      }
-    }
-
-    return {
-      name: brandName,
-      productsCount,
-      mainCountry,
-      wikidataInfo
-    }
-  } catch (err) {
-    console.error('Erreur lors de la récupération des infos de la marque:', err)
+    console.warn('Erreur Wikidata:', err)
     return null
   }
 }
@@ -337,29 +246,43 @@ const fetchProductInfo = async () => {
   try {
     loading.value = true
     error.value = null
-    const response = await axios.get(`https://world.openfoodfacts.org/api/v0/product/${props.barcode}.json`)
-    
-    if (response.data.status === 1) {
-      product.value = response.data.product
-      console.log('Product data:', product.value)
-      
+
+    // Vérifier le cache pour le produit
+    const productCacheKey = `product_${props.barcode}`
+    if (cache.has(productCacheKey)) {
+      const cachedData = cache.get(productCacheKey)
+      product.value = cachedData.product
+      brandInfo.value = cachedData.brandInfo
+      loading.value = false
+      return
+    }
+
+    // Requête parallèle pour le produit
+    const [productResponse] = await Promise.all([
+      api.get(`/api/v0/product/${props.barcode}.json`)
+    ])
+
+    if (productResponse.data.status === 1) {
+      product.value = productResponse.data.product
+
       if (product.value.brands) {
-        // Utiliser le nom de la marque directement plutôt que brands_tags
         const brandName = product.value.brands.split(',')[0].trim()
-        console.log('Searching for brand:', brandName)
-        
         const wikidataInfo = await searchCompanyWithWikidata(brandName)
-        console.log('Wikidata info:', wikidataInfo)
-        
-        brandInfo.value = {
-          wikidataInfo
-        }
+        brandInfo.value = { wikidataInfo }
+
+        // Mettre en cache le produit et les infos de la marque
+        cache.set(productCacheKey, {
+          product: product.value,
+          brandInfo: brandInfo.value
+        }, 30) // Cache de 30 minutes pour les produits
       }
     } else {
       error.value = 'Produit non trouvé dans la base de données'
     }
   } catch (err) {
-    error.value = 'Erreur lors de la récupération des informations du produit'
+    error.value = err.response?.status === 404 
+      ? 'Produit non trouvé dans la base de données'
+      : 'Erreur lors de la récupération des informations'
     console.error('Erreur API:', err)
   } finally {
     loading.value = false
