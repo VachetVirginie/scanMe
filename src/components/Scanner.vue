@@ -13,6 +13,22 @@
       <p class="scan-instruction">Placez le code-barres dans le cadre pour découvrir l'origine de vos produits</p>
       <Button @click="toggleScanner" :icon="isScanning ? 'pi pi-pause' : 'pi pi-play'" :label="isScanning ? 'Pause' : 'Scanner'" />
     </div>
+
+    <div class="manual-input">
+      <p class="manual-instruction">Ou saisissez le code-barres manuellement</p>
+      <div class="input-group">
+        <InputText 
+          v-model="manualBarcode"
+          placeholder="Ex: 3017620422003"
+          @keyup.enter="handleManualSubmit"
+        />
+        <Button 
+          icon="pi pi-search"
+          @click="handleManualSubmit"
+          :disabled="!manualBarcode"
+        />
+      </div>
+    </div>
   </div>
 </template>
 
@@ -21,11 +37,13 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { BrowserMultiFormatReader } from '@zxing/library'
 import { useRouter } from 'vue-router'
 import Button from 'primevue/button'
+import InputText from 'primevue/inputtext'
 
 const router = useRouter()
 const video = ref(null)
 const codeReader = new BrowserMultiFormatReader()
 const isScanning = ref(false)
+const manualBarcode = ref('')
 
 const checkCameraSupport = () => {
   // Vérifier si nous sommes en HTTPS ou localhost
@@ -88,6 +106,12 @@ const toggleScanner = () => {
     stopScanning()
   } else {
     startScanning()
+  }
+}
+
+const handleManualSubmit = () => {
+  if (manualBarcode.value && manualBarcode.value.trim().length > 0) {
+    router.push(`/product/${manualBarcode.value.trim()}`)
   }
 }
 
@@ -164,6 +188,50 @@ onUnmounted(() => {
   line-height: 1.5;
 }
 
+.manual-input {
+  margin-top: 32px;
+  text-align: center;
+  background: var(--card-dark);
+  padding: 24px;
+  border-radius: 20px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+
+.manual-instruction {
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+  font-size: 1rem;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+.input-group {
+  display: flex;
+  gap: 12px;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+:deep(.p-inputtext) {
+  flex: 1;
+  background: var(--surface-dark);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  transition: all 0.3s ease;
+}
+
+:deep(.p-inputtext:focus) {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(127, 90, 240, 0.2);
+}
+
+:deep(.p-inputtext::placeholder) {
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
 :deep(.p-button) {
   background: var(--gradient-primary);
   border: none;
@@ -206,6 +274,20 @@ onUnmounted(() => {
 
   .scan-instruction {
     font-size: 0.9rem;
+  }
+
+  .manual-input {
+    margin-top: 24px;
+    padding: 16px;
+  }
+
+  .input-group {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  :deep(.p-inputtext) {
+    width: 100%;
   }
 }
 
