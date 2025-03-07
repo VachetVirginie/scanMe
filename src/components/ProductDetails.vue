@@ -1,29 +1,36 @@
 <template>
-  <div class="product-details">
+  <div class="product-details glass-card">
+    <div class="product-header">
+      <h1>{{ loading ? 'Enquête en cours... ' : error ? 'Oups ! Mission échouée ' : (product?.product_name || 'Produit mystère ') }}</h1>
+      <Button 
+        @click="$router.push('/')" 
+        class="scan-another-button"
+        icon="pi pi-camera"
+        label="Nouvelle enquête "
+      />
+    </div>
+
     <div v-if="loading" class="loading">
       <i class="pi pi-spin pi-spinner" style="font-size: 2rem"></i>
-      <p>Chargement des informations...</p>
+      <p>Nos agents secrets récupèrent les informations... </p>
     </div>
 
     <div v-else-if="error" class="error">
       <i class="pi pi-exclamation-triangle" style="color: red"></i>
       <p>{{ error }}</p>
-      <Button @click="$router.push('/')" label="Retour au scanner" />
+      <p class="error-subtitle">Pas de panique ! Retente ta chance avec un autre produit </p>
     </div>
 
     <div v-else-if="product" class="product-info">
       <img v-if="product.image_url" :src="product.image_url" :alt="product.product_name" class="product-image" />
       
       <div class="info-section">
-        <div class="product-header">
-          <h2>{{ product.product_name }}</h2>
-          <div class="brand-name-country" v-if="product.brands">
-            <span class="brand-name">{{ product.brands }}</span>
-            <span v-if="brandInfo?.wikidataInfo?.country" class="country-tag">
-              <i class="pi pi-flag"></i>
-              {{ brandInfo.wikidataInfo.country }}
-            </span>
-          </div>
+        <div class="brand-name-country" v-if="product.brands">
+          <span class="brand-name">{{ product.brands }}</span>
+          <span v-if="brandInfo?.wikidataInfo?.country" class="country-tag">
+            <i class="pi pi-flag"></i>
+            {{ brandInfo.wikidataInfo.country }}
+          </span>
         </div>
 
         <!-- Informations de la marque -->
@@ -109,10 +116,6 @@
             <span>{{ product.ecoscore_score }}/100</span>
           </div>
         </div>
-      </div>
-
-      <div class="actions">
-        <Button @click="$router.push('/')" label="Scanner un autre produit" icon="pi pi-camera" />
       </div>
     </div>
   </div>
@@ -392,6 +395,67 @@ onMounted(() => {
   font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
+.product-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.product-header h1 {
+  margin: 0;
+  font-size: 2rem;
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.scan-another-button {
+  background: var(--gradient-secondary) !important;
+  border: none !important;
+  border-radius: 16px !important;
+  padding: 16px 32px !important;
+  font-size: 1.1rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.5px !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3) !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+.scan-another-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(45deg, 
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0) 100%);
+  transform: translateX(-100%);
+  transition: transform 0.6s;
+}
+
+.scan-another-button:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 25px rgba(108, 92, 231, 0.4) !important;
+  filter: brightness(1.1) !important;
+}
+
+.scan-another-button:hover::before {
+  transform: translateX(100%);
+}
+
+.scan-another-button .p-button-icon {
+  font-size: 1.2rem !important;
+  margin-right: 8px !important;
+}
+
 .loading, .error {
   display: flex;
   flex-direction: column;
@@ -429,28 +493,6 @@ onMounted(() => {
   border-radius: 24px;
   padding: 24px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
-}
-
-.product-header {
-  text-align: center;
-  margin-bottom: 32px;
-}
-
-.product-header h2 {
-  font-family: 'Outfit', sans-serif;
-  color: var(--text-primary);
-  font-size: 1.75rem;
-  font-weight: 600;
-  margin-bottom: 12px;
-  letter-spacing: -0.02em;
-}
-
-.product-subtitle {
-  color: var(--text-secondary);
-  font-size: 1rem;
-  line-height: 1.5;
-  max-width: 80%;
-  margin: 0 auto;
 }
 
 .brand-name-country {
@@ -644,8 +686,10 @@ onMounted(() => {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  box-shadow: 0 4px 12px rgba(127, 90, 240, 0.3);
   transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(127, 90, 240, 0.3);
+  position: relative;
+  overflow: hidden;
 }
 
 :deep(.p-button:hover) {
@@ -662,17 +706,32 @@ onMounted(() => {
     padding: 12px;
   }
 
-  .product-header h2 {
-    font-size: 1.4rem;
+  .product-header {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
   }
 
-  .product-subtitle {
-    font-size: 0.9rem;
-    max-width: 95%;
+  .product-header h1 {
+    font-size: 1.75rem;
   }
 
-  .brand-name {
-    font-size: 1.1rem;
+  .scan-another-button {
+    width: 100%;
+    padding: 14px 24px !important;
+    font-size: 1rem !important;
+  }
+
+  .product-info {
+    gap: 16px;
+  }
+
+  .product-image {
+    max-width: 150px;
+  }
+
+  .info-section {
+    padding: 16px;
   }
 
   .brand-card-header {

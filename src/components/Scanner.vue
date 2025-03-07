@@ -1,21 +1,33 @@
 <template>
   <div class="scanner-container">
     <div class="scanner-header">
-      <h1>Scannez et découvrez</h1>
-      <p class="subtitle">Explorez l'histoire derrière chaque produit en un simple scan</p>
+      <h1>Démasque ton produit ! 🔍</h1>
+      <p class="subtitle">Découvre la vérité derrière tes achats et deviens un consomm'acteur averti</p>
     </div>
     
     <div class="scanner-frame" :class="{ scanning: isScanning }">
       <video ref="video" class="scanner-video"></video>
+      <div class="scan-area">
+        <div class="corner top-left"></div>
+        <div class="corner top-right"></div>
+        <div class="corner bottom-left"></div>
+        <div class="corner bottom-right"></div>
+        <div class="scan-line"></div>
+      </div>
     </div>
 
     <div class="scanner-controls">
-      <p class="scan-instruction">Placez le code-barres dans le cadre pour découvrir l'origine de vos produits</p>
-      <Button @click="toggleScanner" :icon="isScanning ? 'pi pi-pause' : 'pi pi-play'" :label="isScanning ? 'Pause' : 'Scanner'" />
+      <Button 
+        icon="pi pi-camera" 
+        :label="isScanning ? 'Stop ! ✋' : 'Enquêter sur un produit 🕵️'"
+        @click="toggleScanner"
+        class="scan-button"
+        :class="{ 'scanning': isScanning }"
+      />
     </div>
 
-    <div class="manual-input">
-      <p class="manual-instruction">Ou saisissez le code-barres manuellement</p>
+    <div class="manual-input glass-card">
+      <p class="manual-instruction">Tu connais déjà le code secret ? Entre-le ici :</p>
       <div class="input-group">
         <InputText 
           v-model="manualBarcode"
@@ -25,7 +37,8 @@
         <Button 
           icon="pi pi-search"
           @click="handleManualSubmit"
-          :disabled="!manualBarcode"
+          label="Révéler la vérité 🔎"
+          class="search-button"
         />
       </div>
     </div>
@@ -174,13 +187,11 @@ onUnmounted(() => {
 <style scoped>
 .scanner-container {
   min-height: 100vh;
-  background: var(--background-dark);
   padding: 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 32px;
-  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
 .scanner-header {
@@ -192,9 +203,12 @@ onUnmounted(() => {
 .scanner-header h1 {
   font-family: 'Outfit', sans-serif;
   font-size: 2.5rem;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-primary);
   margin-bottom: 16px;
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
   letter-spacing: -0.02em;
 }
 
@@ -213,10 +227,14 @@ onUnmounted(() => {
   aspect-ratio: 4/3;
   border-radius: 24px;
   overflow: hidden;
-  box-shadow: 0 8px 32px rgba(127, 90, 240, 0.2);
+  background: var(--bg-card);
+  border: var(--glass-border);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow);
 }
 
 .scanner-frame.scanning {
+  border-color: var(--accent);
   animation: pulse 2s infinite;
 }
 
@@ -225,6 +243,63 @@ onUnmounted(() => {
   height: 100%;
   object-fit: cover;
   border-radius: 24px;
+}
+
+.scan-area {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 80%;
+  height: 40%;
+  border: 2px solid transparent;
+}
+
+.corner {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--accent);
+  opacity: 0.8;
+}
+
+.top-left {
+  top: -2px;
+  left: -2px;
+  border-right: none;
+  border-bottom: none;
+}
+
+.top-right {
+  top: -2px;
+  right: -2px;
+  border-left: none;
+  border-bottom: none;
+}
+
+.bottom-left {
+  bottom: -2px;
+  left: -2px;
+  border-right: none;
+  border-top: none;
+}
+
+.bottom-right {
+  bottom: -2px;
+  right: -2px;
+  border-left: none;
+  border-top: none;
+}
+
+.scan-line {
+  position: absolute;
+  width: 100%;
+  height: 2px;
+  background: var(--accent);
+  top: 50%;
+  transform: translateY(-50%);
+  animation: scan 2s ease-in-out infinite;
+  box-shadow: 0 0 8px var(--accent);
 }
 
 .scanner-controls {
@@ -240,69 +315,143 @@ onUnmounted(() => {
 }
 
 .manual-input {
+  width: 100%;
+  max-width: 500px;
   margin-top: 32px;
-  text-align: center;
-  background: var(--card-dark);
   padding: 24px;
-  border-radius: 20px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  border-radius: 24px;
+  background: var(--bg-card);
+  border: var(--glass-border);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow);
 }
 
 .manual-instruction {
   color: var(--text-secondary);
   margin-bottom: 16px;
   font-size: 1rem;
-  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
 .input-group {
   display: flex;
   gap: 12px;
-  max-width: 400px;
   margin: 0 auto;
 }
 
 :deep(.p-inputtext) {
   flex: 1;
-  background: var(--surface-dark);
-  border: 1px solid var(--border-color);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   color: var(--text-primary);
   border-radius: 12px;
   padding: 12px 16px;
-  font-family: 'Plus Jakarta Sans', sans-serif;
-  transition: all 0.3s ease;
+  transition: var(--transition-smooth);
 }
 
 :deep(.p-inputtext:focus) {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px rgba(127, 90, 240, 0.2);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(0, 245, 212, 0.2);
 }
 
 :deep(.p-inputtext::placeholder) {
-  color: var(--text-secondary);
-  opacity: 0.7;
+  color: var(--text-tertiary);
 }
 
-:deep(.p-button) {
-  background: var(--gradient-primary);
-  border: none;
-  border-radius: 30px;
-  padding: 14px 28px;
-  font-family: 'Outfit', sans-serif;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  box-shadow: 0 4px 12px rgba(127, 90, 240, 0.3);
-  transition: all 0.3s ease;
+.scan-button {
+  background: var(--gradient-secondary) !important;
+  border: none !important;
+  border-radius: 16px !important;
+  padding: 16px 32px !important;
+  font-size: 1.1rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.5px !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3) !important;
+  position: relative !important;
+  overflow: hidden !important;
 }
 
-:deep(.p-button:hover) {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(127, 90, 240, 0.4);
+.scan-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(45deg, 
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0) 100%);
+  transform: translateX(-100%);
+  transition: transform 0.6s;
 }
 
-:deep(.p-button .p-button-icon) {
-  font-size: 1.3rem;
+.scan-button:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 25px rgba(108, 92, 231, 0.4) !important;
+  filter: brightness(1.1) !important;
+}
+
+.scan-button:hover::before {
+  transform: translateX(100%);
+}
+
+.scan-button.scanning {
+  background: var(--gradient-accent) !important;
+  animation: pulse-button 2s infinite !important;
+}
+
+.scan-button.scanning:hover {
+  box-shadow: 0 8px 25px rgba(0, 245, 212, 0.4) !important;
+}
+
+.scan-button .p-button-icon {
+  font-size: 1.2rem !important;
+  margin-right: 8px !important;
+}
+
+.search-button {
+  background: var(--gradient-accent) !important;
+  border: none !important;
+  border-radius: 16px !important;
+  padding: 16px 32px !important;
+  font-size: 1.1rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.5px !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-shadow: 0 4px 15px rgba(0, 245, 212, 0.3) !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+.search-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(45deg, 
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0) 100%);
+  transform: translateX(-100%);
+  transition: transform 0.6s;
+}
+
+.search-button:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 25px rgba(0, 245, 212, 0.4) !important;
+  filter: brightness(1.1) !important;
+}
+
+.search-button:hover::before {
+  transform: translateX(100%);
+}
+
+.search-button .p-button-icon {
+  font-size: 1.2rem !important;
+  margin-right: 8px !important;
 }
 
 @media (max-width: 600px) {
@@ -323,10 +472,6 @@ onUnmounted(() => {
     border-radius: 20px;
   }
 
-  .scan-instruction {
-    font-size: 0.9rem;
-  }
-
   .manual-input {
     margin-top: 24px;
     padding: 16px;
@@ -340,17 +485,54 @@ onUnmounted(() => {
   :deep(.p-inputtext) {
     width: 100%;
   }
+
+  .scan-button {
+    padding: 14px 24px !important;
+    font-size: 1rem !important;
+  }
+
+  .search-button {
+    width: 100%;
+    padding: 14px 24px !important;
+    font-size: 1rem !important;
+  }
+}
+
+@keyframes scan {
+  0% {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100%);
+    opacity: 0;
+  }
 }
 
 @keyframes pulse {
   0% {
-    box-shadow: 0 0 0 0 rgba(127, 90, 240, 0.4);
+    box-shadow: 0 0 0 0 rgba(0, 245, 212, 0.4);
   }
   70% {
-    box-shadow: 0 0 0 10px rgba(127, 90, 240, 0);
+    box-shadow: 0 0 0 10px rgba(0, 245, 212, 0);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(127, 90, 240, 0);
+    box-shadow: 0 0 0 0 rgba(0, 245, 212, 0);
+  }
+}
+
+@keyframes pulse-button {
+  0% {
+    box-shadow: 0 4px 15px rgba(0, 245, 212, 0.3);
+  }
+  50% {
+    box-shadow: 0 8px 25px rgba(0, 245, 212, 0.5);
+  }
+  100% {
+    box-shadow: 0 4px 15px rgba(0, 245, 212, 0.3);
   }
 }
 </style>
